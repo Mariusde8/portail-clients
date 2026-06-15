@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portail Clients Prépayé</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #0d4f8c 0%, #1a7fc1 50%, #0d4f8c 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #0d4f8c, #1a7fc1);
+    color: white;
+    padding: 30px 24px 24px;
+    text-align: center;
+  }
+
+  .header .logo {
+    font-size: 42px;
+    margin-bottom: 8px;
+  }
+
+  .header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .header p {
+    font-size: 13px;
+    opacity: 0.85;
+  }
+
+  .form-body {
+    padding: 28px 24px;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  label span.required { color: #ef4444; }
+
+  input[type="text"], input[type="tel"] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #111827;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  input:focus { border-color: #1a7fc1; }
+
+  .hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #0d4f8c, #1a7fc1);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: 8px;
+  }
+
+  .btn:hover { opacity: 0.92; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* Alerts */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .alert.show { display: block; }
+  .alert-error { background: #fee2e2; border-left: 4px solid #ef4444; color: #7f1d1d; }
+  .alert-warning { background: #fef3c7; border-left: 4px solid #f59e0b; color: #78350f; }
+  .alert-success { background: #dcfce7; border-left: 4px solid #22c55e; color: #14532d; }
+  .alert-info { background: #dbeafe; border-left: 4px solid #3b82f6; color: #1e3a5f; }
+
+  /* Loading */
+  #loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #loading-overlay.show { display: flex; }
+
+  .spinner {
+    width: 44px; height: 44px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text { color: white; font-size: 14px; font-weight: 600; }
+
+  /* Phone update section */
+  #phone-update-section {
+    display: none;
+    background: #fffbeb;
+    border: 2px solid #fbbf24;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+
+  #phone-update-section h3 {
+    color: #92400e;
+    font-size: 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #phone-update-section p {
+    color: #78350f;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  /* Dashboard */
+  #dashboard {
+    display: none;
+    padding: 0;
+  }
+
+  .dash-header {
+    background: linear-gradient(135deg, #0d4f8c, #1a7fc1);
+    color: white;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dash-header h2 { font-size: 16px; font-weight: 700; }
+  .dash-header p { font-size: 12px; opacity: 0.85; }
+
+  .logout-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .dash-content { padding: 20px 24px; }
+
+  .info-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .info-card h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 13px;
+  }
+
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: #64748b; font-weight: 500; }
+  .info-value { color: #0f172a; font-weight: 600; }
+  .badge {
+    background: #22c55e;
+    color: white;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+
+  /* Table */
+  .table-section { margin-top: 16px; }
+
+  .table-section h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 12px;
+  }
+
+  .search-box {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    font-size: 13px;
+    margin-bottom: 10px;
+    outline: none;
+  }
+
+  .search-box:focus { border-color: #1a7fc1; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  th {
+    background: #0d4f8c;
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #374151;
+  }
+
+  tr:hover td { background: #f8fafc; }
+  tr:last-child td { border-bottom: none; }
+
+  .table-info { font-size: 11px; color: #9ca3af; margin-top: 6px; }
+
+  .footer {
+    background: #f8fafc;
+    padding: 12px 24px;
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+    border-top: 1px solid #e2e8f0;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Chargement...</div>
+</div>
+
+<div class="container">
+
+  <!-- LOGIN SECTION -->
+  <div id="login-section">
+    <div class="header">
+      <div class="logo">⚡</div>
+      <h1>Portail Clients Prépayé</h1>
+      <p>Entrez vos informations pour accéder à votre compte</p>
+    </div>
+
+    <div class="form-body">
+      <div id="alert-box" class="alert"></div>
+
+      <!-- Phone update box (shown when phone is missing/wrong) -->
+      <div id="phone-update-section">
+        <h3>📞 Mise à jour du numéro de téléphone</h3>
+        <p id="phone-update-msg">Votre numéro de téléphone n'est pas enregistré. Veuillez le saisir pour continuer.</p>
+        <div class="field">
+          <label>Nouveau numéro de téléphone <span class="required">*</span></label>
+          <input type="tel" id="new-phone" placeholder="ex: 677000000" maxlength="15">
+          <div class="hint">Entrez un numéro valide (9 chiffres)</div>
+        </div>
+        <button class="btn" id="btn-update-phone" onclick="updatePhoneAndLogin()">
+          ✅ Enregistrer et se connecter
+        </button>
+      </div>
+
+      <div class="field">
+        <label>Numéro de compteur <span class="required">*</span></label>
+        <input type="text" id="compteur" placeholder="ex: 014294704862" maxlength="20">
+        <div class="hint">Figurant sur votre facture ou carte de recharge</div>
+      </div>
+
+      <div class="field" id="phone-field">
+        <label>Numéro de téléphone</label>
+        <input type="tel" id="telephone" placeholder="ex: 677000000" maxlength="15">
+        <div class="hint">Laisser vide si non enregistré</div>
+      </div>
+
+      <button class="btn" id="btn-login" onclick="handleLogin()">
+        🔐 Accéder à mon compte
+      </button>
+
+      <div class="footer" style="margin-top:16px; background:none; border:none; padding:0;">
+        © 2025 · Portail Clients Prépayé
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SECTION -->
+  <div id="dashboard">
+    <div class="dash-header">
+      <div>
+        <h2>✅ Accès accordé</h2>
+        <p id="welcome-text">Bienvenue</p>
+      </div>
+      <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    </div>
+
+    <div class="dash-content">
+      <div class="info-card">
+        <h3>📋 Informations du compte</h3>
+        <div class="info-row">
+          <span class="info-label">N° Compteur</span>
+          <span class="info-value" id="d-compteur">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Téléphone</span>
+          <span class="info-value" id="d-phone">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Statut</span>
+          <span class="badge">✓ Actif</span>
+        </div>
+      </div>
+
+      <div class="table-section">
+        <h3>👥 Équipe commerciale</h3>
+        <input type="text" class="search-box" id="team-search" placeholder="🔍 Rechercher un agent..." oninput="filterTeam()">
+        <div class="table-wrap">
+          <table id="team-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>NOM</th>
+                <th>Délégation</th>
+                <th>Agence</th>
+                <th>Entreprise</th>
+              </tr>
+            </thead>
+            <tbody id="team-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-info" id="table-info"></div>
+      </div>
+    </div>
+
+    <div class="footer">© 2025 · Portail Clients Prépayé — Données confidentielles</div>
+  </div>
+
+</div>
+
+<script>
+let clientsDB = null;
+let teamUsers = [];
+let filteredTeam = [];
+let currentCompteur = null;
+
+// ─── Load DB on page load ──────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  showLoading('Chargement de la base de données...');
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch('clients_db.json'),
+      fetch('team_users.json')
+    ]);
+    clientsDB = await r1.json();
+    teamUsers = await r2.json();
+    filteredTeam = teamUsers;
+    hideLoading();
+  } catch (e) {
+    hideLoading();
+    showAlert('Erreur de chargement de la base de données. Vérifiez la connexion.', 'error');
+  }
+});
+
+// ─── Login ─────────────────────────────────────────────
+function handleLogin() {
+  clearAlert();
+  hidePhoneUpdate();
+
+  const compteur = document.getElementById('compteur').value.trim();
+  const telephone = document.getElementById('telephone').value.trim();
+
+  if (!compteur) {
+    showAlert('⚠️ Veuillez entrer votre numéro de compteur.', 'warning');
+    return;
+  }
+
+  if (!clientsDB) {
+    showAlert('Base de données non chargée. Rechargez la page.', 'error');
+    return;
+  }
+
+  // Check if compteur exists
+  if (!(compteur in clientsDB)) {
+    showAlert('❌ Numéro de compteur introuvable. Vérifiez et réessayez.', 'error');
+    return;
+  }
+
+  const dbPhone = clientsDB[compteur] || '';
+  currentCompteur = compteur;
+
+  // Case 1: Phone matches
+  if (dbPhone && telephone && normalizePhone(telephone) === normalizePhone(dbPhone)) {
+    openDashboard(compteur, dbPhone);
+    return;
+  }
+
+  // Case 2: No phone in DB (absent) — invite to register
+  if (!dbPhone) {
+    showPhoneUpdate(compteur, 'absent', telephone);
+    return;
+  }
+
+  // Case 3: Phone in DB but user gave wrong/empty phone
+  showPhoneUpdate(compteur, 'mismatch', telephone);
+}
+
+function normalizePhone(p) {
+  return p.replace(/[\s\-\+]/g, '').replace(/^237/, '');
+}
+
+// ─── Phone update ───────────────────────────────────────
+function showPhoneUpdate(compteur, reason, enteredPhone) {
+  const section = document.getElementById('phone-update-section');
+  const msg = document.getElementById('phone-update-msg');
+
+  if (reason === 'absent') {
+    msg.textContent = 'Aucun numéro de téléphone n\'est enregistré pour ce compteur. Saisissez le vôtre pour continuer et être enregistré.';
+    if (enteredPhone) document.getElementById('new-phone').value = enteredPhone;
+    showAlert('ℹ️ Compteur trouvé. Téléphone absent — veuillez l\'enregistrer.', 'info');
+  } else {
+    msg.textContent = 'Le numéro de téléphone saisi ne correspond pas à celui enregistré, ou vous n\'en avez pas fourni. Entrez le bon numéro pour mettre à jour votre fiche.';
+    showAlert('⚠️ Numéro de téléphone incorrect ou manquant. Mettez à jour votre numéro.', 'warning');
+  }
+
+  section.style.display = 'block';
+  document.getElementById('phone-field').style.display = 'none';
+  document.getElementById('btn-login').style.display = 'none';
+}
+
+function hidePhoneUpdate() {
+  document.getElementById('phone-update-section').style.display = 'none';
+  document.getElementById('phone-field').style.display = 'block';
+  document.getElementById('btn-login').style.display = 'block';
+}
+
+function updatePhoneAndLogin() {
+  const newPhone = document.getElementById('new-phone').value.trim();
+  if (!newPhone || newPhone.replace(/\D/g,'').length < 8) {
+    showAlert('⚠️ Veuillez entrer un numéro de téléphone valide (au moins 8 chiffres).', 'warning');
+    return;
+  }
+
+  // Update in local DB (in-memory)
+  clientsDB[currentCompteur] = newPhone;
+
+  showAlert('✅ Numéro enregistré avec succès !', 'success');
+
+  setTimeout(() => {
+    openDashboard(currentCompteur, newPhone);
+  }, 800);
+}
+
+// ─── Dashboard ──────────────────────────────────────────
+function openDashboard(compteur, phone) {
+  document.getElementById('login-section').style.display = 'none';
+  const dash = document.getElementById('dashboard');
+  dash.style.display = 'block';
+
+  document.getElementById('d-compteur').textContent = compteur;
+  document.getElementById('d-phone').textContent = phone || '—';
+  document.getElementById('welcome-text').textContent = `Compteur : ${compteur}`;
+
+  renderTeamTable(teamUsers);
+}
+
+function logout() {
+  document.getElementById('login-section').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('compteur').value = '';
+  document.getElementById('telephone').value = '';
+  document.getElementById('new-phone').value = '';
+  hidePhoneUpdate();
+  clearAlert();
+  currentCompteur = null;
+}
+
+// ─── Team table ─────────────────────────────────────────
+function renderTeamTable(data) {
+  const tbody = document.getElementById('team-tbody');
+  const info = document.getElementById('table-info');
+
+  tbody.innerHTML = data.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.NOM || '—'}</td>
+      <td>${r.Delegation || '—'}</td>
+      <td>${r.Agence || '—'}</td>
+      <td>${r.Entreprise || '—'}</td>
+    </tr>
+  `).join('');
+
+  info.textContent = `${data.length} agent(s) affiché(s) sur ${teamUsers.length} total`;
+}
+
+function filterTeam() {
+  const q = document.getElementById('team-search').value.toLowerCase().trim();
+  if (!q) {
+    renderTeamTable(teamUsers);
+    return;
+  }
+  const filtered = teamUsers.filter(r =>
+    Object.values(r).some(v => v && v.toLowerCase().includes(q))
+  );
+  renderTeamTable(filtered);
+}
+
+// ─── UI helpers ─────────────────────────────────────────
+function showAlert(msg, type) {
+  const box = document.getElementById('alert-box');
+  box.textContent = msg;
+  box.className = `alert alert-${type} show`;
+}
+
+function clearAlert() {
+  const box = document.getElementById('alert-box');
+  box.className = 'alert';
+  box.textContent = '';
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg || 'Chargement...';
+  document.getElementById('loading-overlay').classList.add('show');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('show');
+}
+</script>
+</body>
+</html>
