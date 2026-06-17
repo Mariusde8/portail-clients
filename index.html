@@ -344,12 +344,46 @@
     <div><h2>🔐 Administration SOCADEL</h2><p>Tableau de bord</p></div>
     <button class="logout-btn" onclick="logoutAdmin()">Déconnexion</button>
   </div>
-  <div id="admin-content" style="padding:20px 24px;display:none">
-    <div class="admin-toolbar">
-      <strong style="color:#0d4f8c;" id="report-count">0 rapport(s)</strong>
-      <button class="btn-export" onclick="exportCSV()">⬇ Exporter CSV</button>
+  <div id="admin-content" style="display:none">
+
+    <!-- ONGLETS ADMIN -->
+    <div class="dash-tabs" style="border-bottom:2px solid #e2e8f0;">
+      <button class="dash-tab active" onclick="adminTab('rapports')">📋 Rapports</button>
+      <button class="dash-tab" onclick="adminTab('agents')">👷 Agents</button>
+      <button class="dash-tab" onclick="adminTab('compteurs')">⚡ Compteurs</button>
     </div>
-    <div id="reports-container"><div class="empty-state">Aucun rapport pour le moment.</div></div>
+
+    <!-- PANEL RAPPORTS -->
+    <div id="admin-panel-rapports" class="tab-panel active" style="padding:20px 24px;">
+      <div class="admin-toolbar">
+        <strong style="color:#0d4f8c;" id="report-count">0 rapport(s)</strong>
+        <button class="btn-export" onclick="exportCSV('rapports')">⬇ Exporter CSV</button>
+      </div>
+      <div id="reports-container"><div class="empty-state">Aucun rapport pour le moment.</div></div>
+    </div>
+
+    <!-- PANEL AGENTS -->
+    <div id="admin-panel-agents" class="tab-panel" style="padding:20px 24px;display:none;">
+      <div class="admin-toolbar">
+        <strong style="color:#0d4f8c;" id="agents-count">0 agent(s)</strong>
+        <button class="btn-export" onclick="exportCSV('agents')">⬇ Exporter CSV</button>
+      </div>
+      <input type="text" class="search-box" id="admin-agent-search"
+             placeholder="🔍 Rechercher un agent..." oninput="filterAdminAgents()">
+      <div id="agents-container"><div class="empty-state">Chargement...</div></div>
+    </div>
+
+    <!-- PANEL COMPTEURS -->
+    <div id="admin-panel-compteurs" class="tab-panel" style="padding:20px 24px;display:none;">
+      <div class="admin-toolbar">
+        <strong style="color:#0d4f8c;" id="compteurs-count">0 compteur(s)</strong>
+        <button class="btn-export" onclick="exportCSV('compteurs')">⬇ Exporter CSV</button>
+      </div>
+      <input type="text" class="search-box" id="admin-compteur-search"
+             placeholder="🔍 Rechercher un numéro de compteur..." oninput="filterAdminCompteurs()">
+      <div id="compteurs-container"><div class="empty-state">Chargement...</div></div>
+    </div>
+
   </div>
   <div class="footer" style="display:none" id="admin-footer">© 2025 · SOCADEL – Administration</div>
 </div>
@@ -656,45 +690,153 @@ function loginAdmin() {
   document.getElementById("admin-dash-header").style.display   = "flex";
   document.getElementById("admin-content").style.display       = "block";
   document.getElementById("admin-footer").style.display        = "block";
-  loadAdminReports();
+  adminTab("rapports");
 }
 
 function logoutAdmin() {
-  document.getElementById("admin-dashboard").style.display = "none";
-  document.getElementById("admin-dash-header").style.display = "none";
-  document.getElementById("admin-content").style.display  = "none";
-  document.getElementById("admin-footer").style.display   = "none";
+  document.getElementById("admin-dashboard").style.display      = "none";
+  document.getElementById("admin-dash-header").style.display    = "none";
+  document.getElementById("admin-content").style.display        = "none";
+  document.getElementById("admin-footer").style.display         = "none";
   document.getElementById("admin-user").value = "";
   document.getElementById("admin-pwd").value  = "";
   clearAlert("admin-alert");
   showSection("login");
 }
 
+// ═══════════════════════════════════
+//  ONGLETS ADMIN
+// ═══════════════════════════════════
+function adminTab(tab) {
+  document.querySelectorAll("#admin-content .dash-tab").forEach((b, i) => {
+    b.classList.toggle("active", ["rapports","agents","compteurs"][i] === tab);
+  });
+  ["rapports","agents","compteurs"].forEach(t => {
+    const p = document.getElementById("admin-panel-" + t);
+    if (p) p.style.display = t === tab ? "block" : "none";
+  });
+  if (tab === "rapports") loadAdminReports();
+  if (tab === "agents")   loadAdminAgents();
+  if (tab === "compteurs") loadAdminCompteurs();
+}
+
+// ═══════════════════════════════════
+//  RAPPORTS
+// ═══════════════════════════════════
 async function loadAdminReports() {
   const c = document.getElementById("reports-container");
   c.innerHTML = "<div class=\"empty-state\">Chargement des rapports...</div>";
   const reports = await fetchReports();
   document.getElementById("report-count").textContent = reports.length + " rapport(s) recu(s)";
   if (!reports.length) { c.innerHTML = "<div class=\"empty-state\">Aucun rapport pour le moment.</div>"; return; }
-  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>Date</th><th>Compteur</th><th>Type</th><th>Description</th><th>Tel.</th></tr></thead><tbody>";
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>Date</th><th>Compteur</th><th>Type</th><th>Description</th><th>Tél.</th></tr></thead><tbody>";
   reports.slice().reverse().forEach(r => {
-    html += `<tr><td>${r.date}</td><td>${r.compteur}</td><td>${r.type}</td><td>${r.description}</td><td>${r.telephone||"—"}</td></tr>`;
+    html += "<tr><td>" + r.date + "</td><td>" + r.compteur + "</td><td>" + r.type + "</td><td>" + r.description + "</td><td>" + (r.telephone||"—") + "</td></tr>";
   });
   html += "</tbody></table></div>";
   c.innerHTML = html;
 }
 
-async function exportCSV() {
-  const reports = await fetchReports();
-  if (!reports.length) { alert("Aucun rapport a exporter."); return; }
-  let csv = "\uFEFFDate,Compteur,Type,Description,Telephone\n";
-  reports.forEach(r => {
-    const desc = r.description ? r.description.replace(/"/g, '""') : '';
-    csv += '"' + r.date + '","' + r.compteur + '","' + r.type + '","' + desc + '","' + (r.telephone||'') + '"\n';
+// ═══════════════════════════════════
+//  AGENTS
+// ═══════════════════════════════════
+function loadAdminAgents() {
+  const c = document.getElementById("agents-container");
+  if (!teamUsers || !teamUsers.length) {
+    c.innerHTML = "<div class=\"empty-state\">Base de données agents non chargée.</div>"; return;
+  }
+  document.getElementById("agents-count").textContent = teamUsers.length + " agent(s)";
+  renderAdminAgentsTable(teamUsers);
+}
+
+function renderAdminAgentsTable(data) {
+  const c = document.getElementById("agents-container");
+  if (!data.length) { c.innerHTML = "<div class=\"empty-state\">Aucun résultat.</div>"; return; }
+  const keys = Object.keys(data[0]);
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr>" + keys.map(k => "<th>" + k + "</th>").join("") + "</tr></thead><tbody>";
+  data.forEach(r => {
+    html += "<tr>" + keys.map(k => "<td>" + (r[k]||"—") + "</td>").join("") + "</tr>";
   });
+  html += "</tbody></table></div>";
+  c.innerHTML = html;
+}
+
+function filterAdminAgents() {
+  const q = document.getElementById("admin-agent-search").value.toLowerCase().trim();
+  const filtered = q ? teamUsers.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(q))) : teamUsers;
+  renderAdminAgentsTable(filtered);
+}
+
+// ═══════════════════════════════════
+//  COMPTEURS
+// ═══════════════════════════════════
+let compteursList = [];
+
+function loadAdminCompteurs() {
+  const c = document.getElementById("compteurs-container");
+  if (!clientsDB || !Object.keys(clientsDB).length) {
+    c.innerHTML = "<div class=\"empty-state\">Base de données compteurs non chargée.</div>"; return;
+  }
+  compteursList = Object.entries(clientsDB).map(([num, tel]) => ({ compteur: num, telephone: tel || "—" }));
+  document.getElementById("compteurs-count").textContent = compteursList.length.toLocaleString("fr") + " compteur(s)";
+  renderAdminCompteursTable(compteursList.slice(0, 200));
+  document.getElementById("compteurs-count").textContent += " (200 premiers affichés — utilisez la recherche)";
+}
+
+function renderAdminCompteursTable(data) {
+  const c = document.getElementById("compteurs-container");
+  if (!data.length) { c.innerHTML = "<div class=\"empty-state\">Aucun résultat.</div>"; return; }
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>N° Compteur</th><th>Téléphone</th></tr></thead><tbody>";
+  data.forEach(r => {
+    html += "<tr><td>" + r.compteur + "</td><td>" + r.telephone + "</td></tr>";
+  });
+  html += "</tbody></table></div>";
+  c.innerHTML = html;
+}
+
+function filterAdminCompteurs() {
+  const q = document.getElementById("admin-compteur-search").value.trim();
+  if (!q) { renderAdminCompteursTable(compteursList.slice(0, 200)); return; }
+  const filtered = compteursList.filter(r =>
+    r.compteur.includes(q) || r.telephone.includes(q)
+  );
+  document.getElementById("compteurs-count").textContent = filtered.length + " résultat(s)";
+  renderAdminCompteursTable(filtered.slice(0, 500));
+}
+
+// ═══════════════════════════════════
+//  EXPORT CSV (multi-type)
+// ═══════════════════════════════════
+async function exportCSV(type) {
+  let csv = "", filename = "";
+  if (type === "rapports") {
+    const reports = await fetchReports();
+    if (!reports.length) { alert("Aucun rapport a exporter."); return; }
+    csv = "\uFEFFDate,Compteur,Type,Description,Telephone\n";
+    reports.forEach(r => {
+      const desc = r.description ? r.description.replace(/"/g, '""') : '';
+      csv += '"' + r.date + '","' + r.compteur + '","' + r.type + '","' + desc + '","' + (r.telephone||'') + '"\n';
+    });
+    filename = "rapports_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
+  } else if (type === "agents") {
+    if (!teamUsers.length) { alert("Aucun agent a exporter."); return; }
+    const keys = Object.keys(teamUsers[0]);
+    csv = "\uFEFF" + keys.join(",") + "\n";
+    teamUsers.forEach(r => {
+      csv += keys.map(k => '"' + (r[k]||'').toString().replace(/"/g,'""') + '"').join(",") + "\n";
+    });
+    filename = "agents_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
+  } else if (type === "compteurs") {
+    if (!compteursList.length) { alert("Aucun compteur a exporter."); return; }
+    csv = "\uFEFFN° Compteur,Telephone\n";
+    compteursList.forEach(r => {
+      csv += '"' + r.compteur + '","' + r.telephone + '"\n';
+    });
+    filename = "compteurs_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8;"}));
-  a.download = "rapports_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
+  a.download = filename;
   a.click();
 }
 
