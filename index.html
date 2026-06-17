@@ -220,7 +220,7 @@
       <div class="hint">Laisser vide si non enregistré</div>
     </div>
 
-    <button class="btn" id="btn-login" onclick="handleLogin()">🔐 Accéder à mon compte</button>
+    <button class="btn" id="btn-login" onclick="handleLogin()">🔐 Accéder à la liste des agents</button>
 
     <div style="margin-top:18px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:14px;">
       <strong style="color:#0d4f8c;">SOCADEL</strong> · Société Camerounaise d'Electricité<br>
@@ -543,9 +543,46 @@ function filterTeam() {
 }
 
 // ═══════════════════════════════════
+//  JSONBIN CONFIG (stockage en ligne)
+// ═══════════════════════════════════
+const JSONBIN_API_KEY = "$2a$10$KGja3Gs8uU9cj/2a3SKxz.MQsil2nXStnhCFhd7VOVY/lNUkbqKVW";
+const JSONBIN_BIN_ID  = "6a32844fda38895dfecfb571";
+const JSONBIN_BASE    = "https://api.jsonbin.io/v3/b/" + JSONBIN_BIN_ID;
+
+async function fetchReports() {
+  try {
+    const r = await fetch(JSONBIN_BASE + "/latest", {
+      headers: { "X-Master-Key": JSONBIN_API_KEY }
+    });
+    if (!r.ok) throw new Error("fetch failed");
+    const data = await r.json();
+    return Array.isArray(data.record) ? data.record : [];
+  } catch(e) {
+    return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
+  }
+}
+
+async function saveReports(reports) {
+  try {
+    const r = await fetch(JSONBIN_BASE, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Master-Key": JSONBIN_API_KEY
+      },
+      body: JSON.stringify(reports)
+    });
+    if (!r.ok) throw new Error("save failed");
+    localStorage.setItem("socadel_reports", JSON.stringify(reports));
+  } catch(e) {
+    localStorage.setItem("socadel_reports", JSON.stringify(reports));
+  }
+}
+
+// ═══════════════════════════════════
 //  RAPPORT CLIENT
 // ═══════════════════════════════════
-function envoyerRapport() {
+async function envoyerRapport() {
   const type = document.getElementById("r-type").value;
   const desc = document.getElementById("r-desc").value.trim();
   const tel  = document.getElementById("r-tel").value.trim();
@@ -557,7 +594,10 @@ function envoyerRapport() {
     return;
   }
 
-  const reports = JSON.parse(localStorage.getItem("socadel_reports") || "[]");
+  msg.textContent = "Envoi en cours...";
+  msg.className   = "rapport-alert alert-info show";
+
+  const reports = await fetchReports();
   reports.push({
     date:        new Date().toLocaleString("fr-FR"),
     compteur:    currentCompteur,
@@ -565,7 +605,7 @@ function envoyerRapport() {
     type:        type,
     description: desc
   });
-  localStorage.setItem("socadel_reports", JSON.stringify(reports));
+  await saveReports(reports);
 
   document.getElementById("r-type").value = "";
   document.getElementById("r-desc").value = "";
@@ -626,10 +666,11 @@ function logoutAdmin() {
   showSection("login");
 }
 
-function loadAdminReports() {
-  const reports = JSON.parse(localStorage.getItem("socadel_reports") || "[]");
-  document.getElementById("report-count").textContent = reports.length + " rapport(s) recu(s)";
+async function loadAdminReports() {
   const c = document.getElementById("reports-container");
+  c.innerHTML = "<div class=\"empty-state\">Chargement des rapports...</div>";
+  const reports = await fetchReports();
+  document.getElementById("report-count").textContent = reports.length + " rapport(s) recu(s)";
   if (!reports.length) { c.innerHTML = "<div class=\"empty-state\">Aucun rapport pour le moment.</div>"; return; }
   let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>Date</th><th>Compteur</th><th>Type</th><th>Description</th><th>Tel.</th></tr></thead><tbody>";
   reports.slice().reverse().forEach(r => {
@@ -639,12 +680,13 @@ function loadAdminReports() {
   c.innerHTML = html;
 }
 
-function exportCSV() {
-  const reports = JSON.parse(localStorage.getItem("socadel_reports") || "[]");
+async function exportCSV() {
+  const reports = await fetchReports();
   if (!reports.length) { alert("Aucun rapport a exporter."); return; }
   let csv = "\uFEFFDate,Compteur,Type,Description,Telephone\n";
   reports.forEach(r => {
-    csv += `"${r.date}","${r.compteur}","${r.type}","${r.description.replace(/"/g,"\"")}","${r.telephone||""}"\n`;
+    const desc = r.description ? r.description.replace(/"/g, '""') : '';
+    csv += '"' + r.date + '","' + r.compteur + '","' + r.type + '","' + desc + '","' + (r.telephone||'') + '"\n';
   });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8;"}));
