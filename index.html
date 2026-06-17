@@ -339,7 +339,7 @@
 <!-- ══════════════════════════════
      DASHBOARD ADMIN
 ══════════════════════════════ -->
-<div id="admin-dashboard">
+<div id="admin-dashboard" style="display:none">
   <div class="dash-header" style="display:none" id="admin-dash-header">
     <div><h2>🔐 Administration SOCADEL</h2><p>Tableau de bord</p></div>
     <button class="logout-btn" onclick="logoutAdmin()">Déconnexion</button>
@@ -371,9 +371,10 @@ let teamUsers = [];
 let currentCompteur = null;
 let adminClicks = 0, adminTimer = null;
 
-// Accès admin via URL (?admin) ou triple-clic
+// Accès admin via URL (?admin) → page LOGIN admin (pas dashboard direct)
 if (window.location.search.includes("admin")) {
   window.addEventListener("DOMContentLoaded", () => showSection("admin"));
+  // showSection("admin") affiche admin-section = formulaire login
 }
 
 // ═══════════════════════════════════
@@ -556,7 +557,10 @@ async function fetchReports() {
     });
     if (!r.ok) throw new Error("fetch failed");
     const data = await r.json();
-    return Array.isArray(data.record) ? data.record : [];
+    // JSONBin peut retourner un tableau ou un objet {rapports:[]}
+    if (Array.isArray(data.record)) return data.record;
+    if (data.record && Array.isArray(data.record.rapports)) return data.record.rapports;
+    return [];
   } catch(e) {
     return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
   }
@@ -570,7 +574,7 @@ async function saveReports(reports) {
         "Content-Type": "application/json",
         "X-Master-Key": JSONBIN_API_KEY
       },
-      body: JSON.stringify(reports)
+      body: JSON.stringify(reports)  // on sauve toujours un tableau pur
     });
     if (!r.ok) throw new Error("save failed");
     localStorage.setItem("socadel_reports", JSON.stringify(reports));
