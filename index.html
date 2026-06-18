@@ -351,6 +351,7 @@
       <button class="dash-tab active" onclick="adminTab('rapports')">📋 Rapports</button>
       <button class="dash-tab" onclick="adminTab('agents')">👷 Agents</button>
       <button class="dash-tab" onclick="adminTab('compteurs')">⚡ Compteurs</button>
+      <button class="dash-tab" onclick="adminTab('maj')">📞 Mises à jour tél.</button>
     </div>
 
     <!-- PANEL RAPPORTS -->
@@ -366,7 +367,10 @@
     <div id="admin-panel-agents" class="tab-panel" style="padding:20px 24px;display:none;">
       <div class="admin-toolbar">
         <strong style="color:#0d4f8c;" id="agents-count">0 agent(s)</strong>
-        <button class="btn-export" onclick="exportCSV('agents')">⬇ Exporter CSV</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-export" style="background:#0d4f8c;" onclick="showAgentModal()">+ Ajouter</button>
+          <button class="btn-export" onclick="exportCSV('agents')">⬇ CSV</button>
+        </div>
       </div>
       <input type="text" class="search-box" id="admin-agent-search"
              placeholder="🔍 Rechercher un agent..." oninput="filterAdminAgents()">
@@ -377,11 +381,23 @@
     <div id="admin-panel-compteurs" class="tab-panel" style="padding:20px 24px;display:none;">
       <div class="admin-toolbar">
         <strong style="color:#0d4f8c;" id="compteurs-count">0 compteur(s)</strong>
-        <button class="btn-export" onclick="exportCSV('compteurs')">⬇ Exporter CSV</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-export" style="background:#0d4f8c;" onclick="showCompteurModal()">+ Ajouter</button>
+          <button class="btn-export" onclick="exportCSV('compteurs')">⬇ CSV</button>
+        </div>
       </div>
       <input type="text" class="search-box" id="admin-compteur-search"
              placeholder="🔍 Rechercher un numéro de compteur..." oninput="filterAdminCompteurs()">
       <div id="compteurs-container"><div class="empty-state">Chargement...</div></div>
+    </div>
+
+    <!-- PANEL MAJ TÉLÉPHONES -->
+    <div id="admin-panel-maj" class="tab-panel" style="padding:20px 24px;display:none;">
+      <div class="admin-toolbar">
+        <strong style="color:#0d4f8c;" id="maj-count">0 mise(s) à jour</strong>
+        <button class="btn-export" onclick="exportCSV('maj')">⬇ Exporter CSV</button>
+      </div>
+      <div id="maj-container"><div class="empty-state">Aucune mise à jour pour le moment.</div></div>
     </div>
 
   </div>
@@ -389,6 +405,42 @@
 </div>
 
 </div><!-- /container -->
+
+<!-- ══════════════════════════════
+     MODAL AGENT
+══════════════════════════════ -->
+<div id="modal-agent" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:14px;padding:28px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <h3 id="modal-agent-title" style="color:#0d4f8c;margin-bottom:16px;">Ajouter un agent</h3>
+    <input type="hidden" id="modal-agent-index" value="-1">
+    <div class="field"><label>NOM <span class="required">*</span></label><input type="text" id="mag-nom" placeholder="Nom complet"></div>
+    <div class="field"><label>Délégation</label><input type="text" id="mag-del" placeholder="Délégation"></div>
+    <div class="field"><label>Agence</label><input type="text" id="mag-agence" placeholder="Agence"></div>
+    <div class="field"><label>Entreprise</label><input type="text" id="mag-entreprise" placeholder="Entreprise"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn" onclick="saveAgent()">Enregistrer</button>
+      <button class="btn" style="background:#6b7280;" onclick="closeModal('modal-agent')">Annuler</button>
+    </div>
+    <div id="mag-msg" class="alert" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     MODAL COMPTEUR
+══════════════════════════════ -->
+<div id="modal-compteur" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:14px;padding:28px;width:90%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <h3 id="modal-compteur-title" style="color:#0d4f8c;margin-bottom:16px;">Ajouter un compteur</h3>
+    <input type="hidden" id="modal-compteur-old" value="">
+    <div class="field"><label>N° Compteur <span class="required">*</span></label><input type="text" id="mco-num" placeholder="ex: 014294704771"></div>
+    <div class="field"><label>Téléphone</label><input type="tel" id="mco-tel" placeholder="ex: 677000000"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn" onclick="saveCompteur()">Enregistrer</button>
+      <button class="btn" style="background:#6b7280;" onclick="closeModal('modal-compteur')">Annuler</button>
+    </div>
+    <div id="mco-msg" class="alert" style="margin-top:10px;"></div>
+  </div>
+</div>
 
 <!-- Trigger admin secret (triple-clic) -->
 <span id="admin-trigger" onclick="adminTriggerClick()">⬡</span>
@@ -505,7 +557,7 @@ function hidePhoneUpdate() {
   document.getElementById("btn-login").style.display   = "block";
 }
 
-function updatePhoneAndLogin() {
+async function updatePhoneAndLogin() {
   const newPhone = document.getElementById("new-phone").value.trim();
   if (!newPhone || newPhone.replace(/\D/g,"").length < 8) {
     showAlert("alert-box", "Veuillez entrer un numero de telephone valide (au moins 8 chiffres).", "warning");
@@ -513,6 +565,16 @@ function updatePhoneAndLogin() {
   }
   clientsDB[currentCompteur] = newPhone;
   showAlert("alert-box", "Numero enregistre avec succes !", "success");
+
+  // Sauvegarder la mise à jour en ligne pour que l'admin la voie
+  const majList = await fetchPhoneMaj();
+  majList.push({
+    date:     new Date().toLocaleString("fr-FR"),
+    compteur: currentCompteur,
+    telephone: newPhone
+  });
+  await savePhoneMaj(majList);
+
   setTimeout(() => openDashboard(currentCompteur, newPhone), 800);
 }
 
@@ -580,41 +642,53 @@ function filterTeam() {
 // ═══════════════════════════════════
 //  JSONBIN CONFIG (stockage en ligne)
 // ═══════════════════════════════════
-const JSONBIN_API_KEY = "$2a$10$KGja3Gs8uU9cj/2a3SKxz.MQsil2nXStnhCFhd7VOVY/lNUkbqKVW";
-const JSONBIN_BIN_ID  = "6a32844fda38895dfecfb571";
-const JSONBIN_BASE    = "https://api.jsonbin.io/v3/b/" + JSONBIN_BIN_ID;
+const JSONBIN_API_KEY  = "$2a$10$KGja3Gs8uU9cj/2a3SKxz.MQsil2nXStnhCFhd7VOVY/lNUkbqKVW";
+const BIN_RAPPORTS     = "6a32844fda38895dfecfb571";  // rapports clients
+const BIN_MAJ_PHONES   = "6a32844fda38895dfecfb571";  // ← REMPLACER par un 2e bin JSONBin
+const BIN_AGENTS_EDIT  = "6a32844fda38895dfecfb571";  // ← REMPLACER par un 3e bin JSONBin
 
-async function fetchReports() {
+async function jsonbinGet(binId) {
   try {
-    const r = await fetch(JSONBIN_BASE + "/latest", {
+    const r = await fetch("https://api.jsonbin.io/v3/b/" + binId + "/latest", {
       headers: { "X-Master-Key": JSONBIN_API_KEY }
     });
-    if (!r.ok) throw new Error("fetch failed");
+    if (!r.ok) return null;
     const data = await r.json();
-    // JSONBin peut retourner un tableau ou un objet {rapports:[]}
-    if (Array.isArray(data.record)) return data.record;
-    if (data.record && Array.isArray(data.record.rapports)) return data.record.rapports;
-    return [];
-  } catch(e) {
-    return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
-  }
+    return Array.isArray(data.record) ? data.record : (data.record || null);
+  } catch(e) { return null; }
 }
 
-async function saveReports(reports) {
+async function jsonbinSet(binId, payload) {
   try {
-    const r = await fetch(JSONBIN_BASE, {
+    await fetch("https://api.jsonbin.io/v3/b/" + binId, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": JSONBIN_API_KEY
-      },
-      body: JSON.stringify(reports)  // on sauve toujours un tableau pur
+      headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
+      body: JSON.stringify(payload)
     });
-    if (!r.ok) throw new Error("save failed");
-    localStorage.setItem("socadel_reports", JSON.stringify(reports));
-  } catch(e) {
-    localStorage.setItem("socadel_reports", JSON.stringify(reports));
-  }
+  } catch(e) { console.warn("JSONBin save error:", e); }
+}
+
+// Rapports
+async function fetchReports() {
+  const d = await jsonbinGet(BIN_RAPPORTS);
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.rapports)) return d.rapports;
+  return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
+}
+async function saveReports(reports) {
+  localStorage.setItem("socadel_reports", JSON.stringify(reports));
+  await jsonbinSet(BIN_RAPPORTS, reports);
+}
+
+// Mises à jour téléphones
+async function fetchPhoneMaj() {
+  const d = await jsonbinGet(BIN_MAJ_PHONES);
+  if (Array.isArray(d)) return d;
+  return JSON.parse(localStorage.getItem("socadel_phone_maj") || "[]");
+}
+async function savePhoneMaj(list) {
+  localStorage.setItem("socadel_phone_maj", JSON.stringify(list));
+  await jsonbinSet(BIN_MAJ_PHONES, list);
 }
 
 // ═══════════════════════════════════
@@ -709,15 +783,16 @@ function logoutAdmin() {
 // ═══════════════════════════════════
 function adminTab(tab) {
   document.querySelectorAll("#admin-content .dash-tab").forEach((b, i) => {
-    b.classList.toggle("active", ["rapports","agents","compteurs"][i] === tab);
+    b.classList.toggle("active", ["rapports","agents","compteurs","maj"][i] === tab);
   });
-  ["rapports","agents","compteurs"].forEach(t => {
+  ["rapports","agents","compteurs","maj"].forEach(t => {
     const p = document.getElementById("admin-panel-" + t);
     if (p) p.style.display = t === tab ? "block" : "none";
   });
-  if (tab === "rapports") loadAdminReports();
-  if (tab === "agents")   loadAdminAgents();
+  if (tab === "rapports")  loadAdminReports();
+  if (tab === "agents")    loadAdminAgents();
   if (tab === "compteurs") loadAdminCompteurs();
+  if (tab === "maj")       loadAdminMaj();
 }
 
 // ═══════════════════════════════════
@@ -738,13 +813,26 @@ async function loadAdminReports() {
 }
 
 // ═══════════════════════════════════
-//  AGENTS
+//  MISES À JOUR TÉLÉPHONES
+// ═══════════════════════════════════
+async function loadAdminMaj() {
+  const c = document.getElementById("maj-container");
+  c.innerHTML = "<div class=\"empty-state\">Chargement...</div>";
+  const list = await fetchPhoneMaj();
+  document.getElementById("maj-count").textContent = list.length + " mise(s) à jour";
+  if (!list.length) { c.innerHTML = "<div class=\"empty-state\">Aucune mise à jour pour le moment.</div>"; return; }
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>Date</th><th>N° Compteur</th><th>Nouveau téléphone</th></tr></thead><tbody>";
+  list.slice().reverse().forEach(r => {
+    html += "<tr><td>" + r.date + "</td><td>" + r.compteur + "</td><td>" + r.telephone + "</td></tr>";
+  });
+  html += "</tbody></table></div>";
+  c.innerHTML = html;
+}
+
+// ═══════════════════════════════════
+//  AGENTS — affichage
 // ═══════════════════════════════════
 function loadAdminAgents() {
-  const c = document.getElementById("agents-container");
-  if (!teamUsers || !teamUsers.length) {
-    c.innerHTML = "<div class=\"empty-state\">Base de données agents non chargée.</div>"; return;
-  }
   document.getElementById("agents-count").textContent = teamUsers.length + " agent(s)";
   renderAdminAgentsTable(teamUsers);
 }
@@ -752,10 +840,13 @@ function loadAdminAgents() {
 function renderAdminAgentsTable(data) {
   const c = document.getElementById("agents-container");
   if (!data.length) { c.innerHTML = "<div class=\"empty-state\">Aucun résultat.</div>"; return; }
-  const keys = Object.keys(data[0]);
-  let html = "<div style=\"overflow-x:auto\"><table><thead><tr>" + keys.map(k => "<th>" + k + "</th>").join("") + "</tr></thead><tbody>";
-  data.forEach(r => {
-    html += "<tr>" + keys.map(k => "<td>" + (r[k]||"—") + "</td>").join("") + "</tr>";
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>#</th><th>NOM</th><th>Délégation</th><th>Agence</th><th>Entreprise</th><th>Actions</th></tr></thead><tbody>";
+  data.forEach((r, i) => {
+    const idx = teamUsers.indexOf(r);
+    html += "<tr><td>" + (i+1) + "</td><td>" + (r.NOM||"—") + "</td><td>" + (r.Delegation||"—") + "</td><td>" + (r.Agence||"—") + "</td><td>" + (r.Entreprise||"—") + "</td><td style=\"white-space:nowrap\">" +
+      "<button onclick=\"editAgent(" + idx + ")\" style=\"background:#1a7fc1;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;margin-right:4px;\">✏️</button>" +
+      "<button onclick=\"deleteAgent(" + idx + ")\" style=\"background:#ef4444;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;\">🗑️</button>" +
+      "</td></tr>";
   });
   html += "</tbody></table></div>";
   c.innerHTML = html;
@@ -768,40 +859,133 @@ function filterAdminAgents() {
 }
 
 // ═══════════════════════════════════
-//  COMPTEURS
+//  AGENTS — CRUD
+// ═══════════════════════════════════
+function showAgentModal(idx) {
+  document.getElementById("modal-agent-index").value = (idx === undefined ? -1 : idx);
+  const isEdit = idx !== undefined && idx >= 0;
+  document.getElementById("modal-agent-title").textContent = isEdit ? "Modifier l'agent" : "Ajouter un agent";
+  const r = isEdit ? teamUsers[idx] : {};
+  document.getElementById("mag-nom").value       = r.NOM        || "";
+  document.getElementById("mag-del").value       = r.Delegation || "";
+  document.getElementById("mag-agence").value    = r.Agence     || "";
+  document.getElementById("mag-entreprise").value= r.Entreprise || "";
+  document.getElementById("mag-msg").className   = "alert";
+  openModal("modal-agent");
+}
+
+function editAgent(idx) { showAgentModal(idx); }
+
+function deleteAgent(idx) {
+  if (!confirm("Supprimer cet agent ?")) return;
+  teamUsers.splice(idx, 1);
+  renderTeamTable(teamUsers);
+  loadAdminAgents();
+}
+
+function saveAgent() {
+  const nom = document.getElementById("mag-nom").value.trim();
+  if (!nom) { showAlert("mag-msg", "Le nom est obligatoire.", "error"); return; }
+  const idx = parseInt(document.getElementById("modal-agent-index").value);
+  const obj = {
+    NOM: nom,
+    Delegation: document.getElementById("mag-del").value.trim(),
+    Agence:     document.getElementById("mag-agence").value.trim(),
+    Entreprise: document.getElementById("mag-entreprise").value.trim()
+  };
+  if (idx >= 0) {
+    teamUsers[idx] = obj;
+  } else {
+    teamUsers.push(obj);
+  }
+  renderTeamTable(teamUsers);
+  loadAdminAgents();
+  closeModal("modal-agent");
+}
+
+// ═══════════════════════════════════
+//  COMPTEURS — affichage
 // ═══════════════════════════════════
 let compteursList = [];
 
 function loadAdminCompteurs() {
-  const c = document.getElementById("compteurs-container");
   if (!clientsDB || !Object.keys(clientsDB).length) {
-    c.innerHTML = "<div class=\"empty-state\">Base de données compteurs non chargée.</div>"; return;
+    document.getElementById("compteurs-container").innerHTML = "<div class=\"empty-state\">Base de données non chargée.</div>"; return;
   }
   compteursList = Object.entries(clientsDB).map(([num, tel]) => ({ compteur: num, telephone: tel || "—" }));
-  document.getElementById("compteurs-count").textContent = compteursList.length.toLocaleString("fr") + " compteur(s)";
-  renderAdminCompteursTable(compteursList.slice(0, 200));
-  document.getElementById("compteurs-count").textContent += " (200 premiers affichés — utilisez la recherche)";
+  document.getElementById("compteurs-count").textContent = compteursList.length.toLocaleString("fr") + " compteur(s) — recherchez pour filtrer";
+  renderAdminCompteursTable([]);
 }
 
 function renderAdminCompteursTable(data) {
   const c = document.getElementById("compteurs-container");
-  if (!data.length) { c.innerHTML = "<div class=\"empty-state\">Aucun résultat.</div>"; return; }
-  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>N° Compteur</th><th>Téléphone</th></tr></thead><tbody>";
+  if (!data.length) {
+    c.innerHTML = "<div class=\"empty-state\">Saisissez un terme de recherche pour afficher les compteurs.</div>"; return;
+  }
+  let html = "<div style=\"overflow-x:auto\"><table><thead><tr><th>N° Compteur</th><th>Téléphone</th><th>Actions</th></tr></thead><tbody>";
   data.forEach(r => {
-    html += "<tr><td>" + r.compteur + "</td><td>" + r.telephone + "</td></tr>";
+    html += "<tr><td>" + r.compteur + "</td><td>" + r.telephone + "</td><td style=\"white-space:nowrap\">" +
+      "<button onclick=\"editCompteur('" + r.compteur + "')\" style=\"background:#1a7fc1;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;margin-right:4px;\">✏️</button>" +
+      "<button onclick=\"deleteCompteur('" + r.compteur + "')\" style=\"background:#ef4444;color:white;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:12px;\">🗑️</button>" +
+      "</td></tr>";
   });
   html += "</tbody></table></div>";
   c.innerHTML = html;
 }
 
 function filterAdminCompteurs() {
-  const q = document.getElementById("admin-compteur-search").value.trim();
-  if (!q) { renderAdminCompteursTable(compteursList.slice(0, 200)); return; }
-  const filtered = compteursList.filter(r =>
-    r.compteur.includes(q) || r.telephone.includes(q)
-  );
+  const q = document.getElementById("admin-compteur-search").value.trim().toLowerCase();
+  if (!q) { renderAdminCompteursTable([]); return; }
+  const filtered = compteursList.filter(r => r.compteur.toLowerCase().includes(q) || r.telephone.toLowerCase().includes(q));
   document.getElementById("compteurs-count").textContent = filtered.length + " résultat(s)";
-  renderAdminCompteursTable(filtered.slice(0, 500));
+  renderAdminCompteursTable(filtered.slice(0, 300));
+}
+
+// ═══════════════════════════════════
+//  COMPTEURS — CRUD
+// ═══════════════════════════════════
+function showCompteurModal(oldNum) {
+  document.getElementById("modal-compteur-old").value = oldNum || "";
+  document.getElementById("modal-compteur-title").textContent = oldNum ? "Modifier le compteur" : "Ajouter un compteur";
+  document.getElementById("mco-num").value = oldNum || "";
+  document.getElementById("mco-tel").value = oldNum ? (clientsDB[oldNum] || "") : "";
+  document.getElementById("mco-msg").className = "alert";
+  if (oldNum) document.getElementById("mco-num").readOnly = true;
+  else document.getElementById("mco-num").readOnly = false;
+  openModal("modal-compteur");
+}
+
+function editCompteur(num) { showCompteurModal(num); }
+
+function deleteCompteur(num) {
+  if (!confirm("Supprimer le compteur " + num + " ?")) return;
+  delete clientsDB[num];
+  compteursList = compteursList.filter(r => r.compteur !== num);
+  filterAdminCompteurs();
+  document.getElementById("compteurs-count").textContent = Object.keys(clientsDB).length.toLocaleString("fr") + " compteur(s)";
+}
+
+function saveCompteur() {
+  const num = document.getElementById("mco-num").value.trim();
+  const tel = document.getElementById("mco-tel").value.trim();
+  if (!num) { showAlert("mco-msg", "Le numéro de compteur est obligatoire.", "error"); return; }
+  const oldNum = document.getElementById("modal-compteur-old").value;
+  if (oldNum && oldNum !== num) delete clientsDB[oldNum];
+  clientsDB[num] = tel;
+  compteursList = Object.entries(clientsDB).map(([n, t]) => ({ compteur: n, telephone: t || "—" }));
+  filterAdminCompteurs();
+  closeModal("modal-compteur");
+}
+
+// ═══════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════
+function openModal(id) {
+  const m = document.getElementById(id);
+  m.style.display = "flex";
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
 }
 
 // ═══════════════════════════════════
@@ -820,19 +1004,23 @@ async function exportCSV(type) {
     filename = "rapports_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
   } else if (type === "agents") {
     if (!teamUsers.length) { alert("Aucun agent a exporter."); return; }
-    const keys = Object.keys(teamUsers[0]);
-    csv = "\uFEFF" + keys.join(",") + "\n";
+    csv = "\uFEFFNOM,Delegation,Agence,Entreprise\n";
     teamUsers.forEach(r => {
-      csv += keys.map(k => '"' + (r[k]||'').toString().replace(/"/g,'""') + '"').join(",") + "\n";
+      csv += '"' + (r.NOM||'') + '","' + (r.Delegation||'') + '","' + (r.Agence||'') + '","' + (r.Entreprise||'') + '"\n';
     });
     filename = "agents_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
   } else if (type === "compteurs") {
-    if (!compteursList.length) { alert("Aucun compteur a exporter."); return; }
-    csv = "\uFEFFN° Compteur,Telephone\n";
-    compteursList.forEach(r => {
-      csv += '"' + r.compteur + '","' + r.telephone + '"\n';
-    });
+    const all = Object.entries(clientsDB).map(([n,t]) => ({ compteur:n, telephone:t||"" }));
+    if (!all.length) { alert("Aucun compteur a exporter."); return; }
+    csv = "\uFEFFN Compteur,Telephone\n";
+    all.forEach(r => { csv += '"' + r.compteur + '","' + r.telephone + '"\n'; });
     filename = "compteurs_socadel_" + new Date().toISOString().slice(0,10) + ".csv";
+  } else if (type === "maj") {
+    const list = await fetchPhoneMaj();
+    if (!list.length) { alert("Aucune mise a jour a exporter."); return; }
+    csv = "\uFEFFDate,Compteur,Nouveau telephone\n";
+    list.forEach(r => { csv += '"' + r.date + '","' + r.compteur + '","' + r.telephone + '"\n'; });
+    filename = "maj_telephones_" + new Date().toISOString().slice(0,10) + ".csv";
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8;"}));
