@@ -365,16 +365,14 @@
 
     <!-- PANEL AGENTS -->
     <div id="admin-panel-agents" class="tab-panel" style="padding:20px 24px;display:none;">
-      <div class="admin-toolbar">
-        <strong style="color:#0d4f8c;" id="agents-count">0 agent(s)</strong>
-        <div style="display:flex;gap:8px;">
-          <button class="btn-export" style="background:#0d4f8c;" onclick="showAgentModal()">+ Ajouter</button>
-          <button class="btn-export" onclick="exportCSV('agents')">⬇ CSV</button>
-        </div>
+      <strong style="color:#0d4f8c;font-size:14px;" id="agents-count">0 agent(s)</strong>
+      <div style="display:flex;gap:8px;margin-top:10px;margin-bottom:12px;">
+        <button class="btn-export" style="background:#0d4f8c;" onclick="showAgentModal()">+ Ajouter</button>
+        <button class="btn-export" onclick="exportCSV('agents')">⬇ CSV</button>
       </div>
       <input type="text" class="search-box" id="admin-agent-search"
-             placeholder="🔍 Rechercher un agent..." oninput="filterAdminAgents()">
-      <div id="agents-container"><div class="empty-state">Chargement...</div></div>
+             placeholder="🔍 Rechercher un agent (nom, agence, délégation)..." oninput="filterAdminAgents()">
+      <div id="agents-container"><div class="empty-state">Saisissez un terme de recherche pour afficher les agents.</div></div>
     </div>
 
     <!-- PANEL COMPTEURS -->
@@ -833,8 +831,9 @@ async function loadAdminMaj() {
 //  AGENTS — affichage
 // ═══════════════════════════════════
 function loadAdminAgents() {
-  document.getElementById("agents-count").textContent = teamUsers.length + " agent(s)";
-  renderAdminAgentsTable(teamUsers);
+  document.getElementById("agents-count").textContent = teamUsers.length.toLocaleString("fr") + " agent(s) — recherchez pour filtrer";
+  document.getElementById("agents-container").innerHTML = "<div class=\"empty-state\">Saisissez un terme de recherche pour afficher les agents.</div>";
+  document.getElementById("admin-agent-search").value = "";
 }
 
 function renderAdminAgentsTable(data) {
@@ -854,7 +853,13 @@ function renderAdminAgentsTable(data) {
 
 function filterAdminAgents() {
   const q = document.getElementById("admin-agent-search").value.toLowerCase().trim();
-  const filtered = q ? teamUsers.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(q))) : teamUsers;
+  if (!q) {
+    document.getElementById("agents-container").innerHTML = "<div class=\"empty-state\">Saisissez un terme de recherche pour afficher les agents.</div>";
+    document.getElementById("agents-count").textContent = teamUsers.length.toLocaleString("fr") + " agent(s) — recherchez pour filtrer";
+    return;
+  }
+  const filtered = teamUsers.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(q)));
+  document.getElementById("agents-count").textContent = filtered.length + " résultat(s)";
   renderAdminAgentsTable(filtered);
 }
 
@@ -881,6 +886,7 @@ function deleteAgent(idx) {
   teamUsers.splice(idx, 1);
   renderTeamTable(teamUsers);
   loadAdminAgents();
+  filterAdminAgents();
 }
 
 function saveAgent() {
@@ -900,6 +906,7 @@ function saveAgent() {
   }
   renderTeamTable(teamUsers);
   loadAdminAgents();
+  filterAdminAgents();
   closeModal("modal-agent");
 }
 
