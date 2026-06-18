@@ -455,10 +455,67 @@ let teamUsers = [];
 let currentCompteur = null;
 let adminClicks = 0, adminTimer = null;
 
-// Accès admin via URL (?admin) → page LOGIN admin (pas dashboard direct)
+// ═══════════════════════════════════
+//  JSONBIN CONFIG (stockage en ligne)
+// ═══════════════════════════════════
+const JSONBIN_API_KEY  = "$2a$10$KGja3Gs8uU9cj/2a3SKxz.MQsil2nXStnhCFhd7VOVY/lNUkbqKVW";
+const BIN_RAPPORTS     = "6a32844fda38895dfecfb571";
+const BIN_MAJ_PHONES   = "6a33dd37da38895dfed6cb2e";
+const BIN_AGENTS_EDIT  = "6a33dc43f5f4af5e290847eb";
+
+async function jsonbinGet(binId) {
+  try {
+    const r = await fetch("https://api.jsonbin.io/v3/b/" + binId + "/latest", {
+      headers: { "X-Master-Key": JSONBIN_API_KEY }
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return Array.isArray(data.record) ? data.record : (data.record || null);
+  } catch(e) { return null; }
+}
+
+async function jsonbinSet(binId, payload) {
+  try {
+    await fetch("https://api.jsonbin.io/v3/b/" + binId, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) { console.warn("JSONBin save error:", e); }
+}
+
+async function fetchReports() {
+  const d = await jsonbinGet(BIN_RAPPORTS);
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.rapports)) return d.rapports;
+  return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
+}
+async function saveReports(reports) {
+  localStorage.setItem("socadel_reports", JSON.stringify(reports));
+  await jsonbinSet(BIN_RAPPORTS, reports);
+}
+
+async function fetchPhoneMaj() {
+  const d = await jsonbinGet(BIN_MAJ_PHONES);
+  return Array.isArray(d) ? d : JSON.parse(localStorage.getItem("socadel_phone_maj") || "[]");
+}
+async function savePhoneMaj(list) {
+  localStorage.setItem("socadel_phone_maj", JSON.stringify(list));
+  await jsonbinSet(BIN_MAJ_PHONES, list);
+}
+
+async function fetchAgentsEdits() {
+  const d = await jsonbinGet(BIN_AGENTS_EDIT);
+  return Array.isArray(d) ? d : null;
+}
+async function saveAgentsOnline(agents) {
+  await jsonbinSet(BIN_AGENTS_EDIT, agents);
+  localStorage.setItem("socadel_agents_edit", JSON.stringify(agents));
+}
+
+// Accès admin via URL (?admin)
 if (window.location.search.includes("admin")) {
   window.addEventListener("DOMContentLoaded", () => showSection("admin"));
-  // showSection("admin") affiche admin-section = formulaire login
 }
 
 // ═══════════════════════════════════
@@ -472,7 +529,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       fetch("team_users.json")
     ]);
     clientsDB = await r1.json();
-    teamUsers  = await r2.json();
+    const baseAgents = await r2.json();
+    const agentsOnline = await fetchAgentsEdits();
+    teamUsers = agentsOnline && agentsOnline.length ? agentsOnline : baseAgents;
     hideLoading();
   } catch(e) {
     hideLoading();
@@ -635,58 +694,6 @@ function filterTeam() {
     Object.values(r).some(v => v && String(v).toLowerCase().includes(q))
   );
   renderTeamTable(filtered);
-}
-
-// ═══════════════════════════════════
-//  JSONBIN CONFIG (stockage en ligne)
-// ═══════════════════════════════════
-const JSONBIN_API_KEY  = "$2a$10$KGja3Gs8uU9cj/2a3SKxz.MQsil2nXStnhCFhd7VOVY/lNUkbqKVW";
-const BIN_RAPPORTS     = "6a32844fda38895dfecfb571";  // rapports clients
-const BIN_MAJ_PHONES   = "6a32844fda38895dfecfb571";  // ← REMPLACER par un 2e bin JSONBin
-const BIN_AGENTS_EDIT  = "6a32844fda38895dfecfb571";  // ← REMPLACER par un 3e bin JSONBin
-
-async function jsonbinGet(binId) {
-  try {
-    const r = await fetch("https://api.jsonbin.io/v3/b/" + binId + "/latest", {
-      headers: { "X-Master-Key": JSONBIN_API_KEY }
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return Array.isArray(data.record) ? data.record : (data.record || null);
-  } catch(e) { return null; }
-}
-
-async function jsonbinSet(binId, payload) {
-  try {
-    await fetch("https://api.jsonbin.io/v3/b/" + binId, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
-      body: JSON.stringify(payload)
-    });
-  } catch(e) { console.warn("JSONBin save error:", e); }
-}
-
-// Rapports
-async function fetchReports() {
-  const d = await jsonbinGet(BIN_RAPPORTS);
-  if (Array.isArray(d)) return d;
-  if (d && Array.isArray(d.rapports)) return d.rapports;
-  return JSON.parse(localStorage.getItem("socadel_reports") || "[]");
-}
-async function saveReports(reports) {
-  localStorage.setItem("socadel_reports", JSON.stringify(reports));
-  await jsonbinSet(BIN_RAPPORTS, reports);
-}
-
-// Mises à jour téléphones
-async function fetchPhoneMaj() {
-  const d = await jsonbinGet(BIN_MAJ_PHONES);
-  if (Array.isArray(d)) return d;
-  return JSON.parse(localStorage.getItem("socadel_phone_maj") || "[]");
-}
-async function savePhoneMaj(list) {
-  localStorage.setItem("socadel_phone_maj", JSON.stringify(list));
-  await jsonbinSet(BIN_MAJ_PHONES, list);
 }
 
 // ═══════════════════════════════════
@@ -885,16 +892,17 @@ function deleteAgent(idx) {
   if (!confirm("Supprimer cet agent ?")) return;
   teamUsers.splice(idx, 1);
   renderTeamTable(teamUsers);
+  saveAgentsOnline(teamUsers);
   loadAdminAgents();
   filterAdminAgents();
 }
 
-function saveAgent() {
+async function saveAgent() {
   const nom = document.getElementById("mag-nom").value.trim();
   if (!nom) { showAlert("mag-msg", "Le nom est obligatoire.", "error"); return; }
   const idx = parseInt(document.getElementById("modal-agent-index").value);
   const obj = {
-    NOM: nom,
+    NOM:        nom,
     Delegation: document.getElementById("mag-del").value.trim(),
     Agence:     document.getElementById("mag-agence").value.trim(),
     Entreprise: document.getElementById("mag-entreprise").value.trim()
@@ -905,6 +913,7 @@ function saveAgent() {
     teamUsers.push(obj);
   }
   renderTeamTable(teamUsers);
+  await saveAgentsOnline(teamUsers);
   loadAdminAgents();
   filterAdminAgents();
   closeModal("modal-agent");
