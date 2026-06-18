@@ -266,17 +266,12 @@
 
     <div class="table-section">
       <h3>👥 Équipe commerciale</h3>
+      <p style="font-size:13px;color:#64748b;margin-bottom:10px;" id="team-total-info"></p>
       <input type="text" class="search-box" id="team-search"
-             placeholder="🔍 Rechercher un agent..." oninput="filterTeam()">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>#</th><th>NOM</th><th>Délégation</th><th>Agence</th><th>Entreprise</th></tr>
-          </thead>
-          <tbody id="team-tbody"></tbody>
-        </table>
+             placeholder="🔍 Rechercher un agent (nom, agence, délégation)..." oninput="filterTeam()">
+      <div id="team-results">
+        <div class="empty-state">Saisissez un terme de recherche pour afficher les agents.</div>
       </div>
-      <div class="table-info" id="table-info"></div>
     </div>
   </div>
 
@@ -620,14 +615,17 @@ async function updatePhoneAndLogin() {
     showAlert("alert-box", "Veuillez entrer un numero de telephone valide (au moins 8 chiffres).", "warning");
     return;
   }
+
+  // 1. Mettre à jour clientsDB en mémoire (visible dans onglet Compteurs admin)
   clientsDB[currentCompteur] = newPhone;
+
   showAlert("alert-box", "Numero enregistre avec succes !", "success");
 
-  // Sauvegarder la mise à jour en ligne pour que l'admin la voie
+  // 2. Sauvegarder dans l'onglet "Mises à jour tél." (journal)
   const majList = await fetchPhoneMaj();
   majList.push({
-    date:     new Date().toLocaleString("fr-FR"),
-    compteur: currentCompteur,
+    date:      new Date().toLocaleString("fr-FR"),
+    compteur:  currentCompteur,
     telephone: newPhone
   });
   await savePhoneMaj(majList);
@@ -641,10 +639,13 @@ async function updatePhoneAndLogin() {
 function openDashboard(compteur, phone) {
   document.getElementById("login-section").style.display = "none";
   document.getElementById("dashboard").style.display     = "block";
-  document.getElementById("d-compteur").textContent  = compteur;
-  document.getElementById("d-phone").textContent     = phone || "—";
-  document.getElementById("welcome-text").textContent = "Compteur : " + compteur;
-  renderTeamTable(teamUsers);
+  document.getElementById("d-compteur").textContent      = compteur;
+  document.getElementById("d-phone").textContent         = phone || "—";
+  document.getElementById("welcome-text").textContent    = "Compteur : " + compteur;
+  // Réinitialiser la recherche agents
+  document.getElementById("team-search").value = "";
+  document.getElementById("team-results").innerHTML = "<div class=\"empty-state\">Saisissez un terme de recherche pour afficher les agents.</div>";
+  document.getElementById("team-total-info").textContent = teamUsers.length.toLocaleString("fr") + " agents disponibles — recherchez par nom, agence ou délégation.";
 }
 
 function logout() {
@@ -670,26 +671,30 @@ function dashTab(tab) {
 }
 
 // ═══════════════════════════════════
-//  TABLE AGENTS
+//  TABLE AGENTS (espace client — recherche)
 // ═══════════════════════════════════
 function renderTeamTable(data) {
-  const tbody = document.getElementById("team-tbody");
-  const info  = document.getElementById("table-info");
-  tbody.innerHTML = data.map((r, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${r.NOM || "—"}</td>
-      <td>${r.Delegation || "—"}</td>
-      <td>${r.Agence || "—"}</td>
-      <td>${r.Entreprise || "—"}</td>
-    </tr>
-  `).join("");
-  info.textContent = data.length + " agent(s) affiche(s) sur " + teamUsers.length + " total";
+  const container = document.getElementById("team-results");
+  if (!data || !data.length) {
+    container.innerHTML = "<div class=\"empty-state\">Aucun résultat.</div>";
+    return;
+  }
+  let html = "<div class=\"table-wrap\"><table><thead><tr><th>#</th><th>NOM</th><th>Délégation</th><th>Agence</th><th>Entreprise</th></tr></thead><tbody>";
+  data.forEach((r, i) => {
+    html += "<tr><td>" + (i+1) + "</td><td>" + (r.NOM||"—") + "</td><td>" + (r.Delegation||"—") + "</td><td>" + (r.Agence||"—") + "</td><td>" + (r.Entreprise||"—") + "</td></tr>";
+  });
+  html += "</tbody></table></div>";
+  html += "<div class=\"table-info\">" + data.length + " agent(s) affiché(s) sur " + teamUsers.length + " total</div>";
+  container.innerHTML = html;
 }
 
 function filterTeam() {
   const q = document.getElementById("team-search").value.toLowerCase().trim();
-  if (!q) { renderTeamTable(teamUsers); return; }
+  const container = document.getElementById("team-results");
+  if (!q) {
+    container.innerHTML = "<div class=\"empty-state\">Saisissez un terme de recherche pour afficher les agents.</div>";
+    return;
+  }
   const filtered = teamUsers.filter(r =>
     Object.values(r).some(v => v && String(v).toLowerCase().includes(q))
   );
