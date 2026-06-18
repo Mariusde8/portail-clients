@@ -525,8 +525,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     ]);
     clientsDB = await r1.json();
     const baseAgents = await r2.json();
+
+    // Charger les modifications agents depuis JSONBin
     const agentsOnline = await fetchAgentsEdits();
     teamUsers = agentsOnline && agentsOnline.length ? agentsOnline : baseAgents;
+
+    // Appliquer les mises à jour téléphones par-dessus clients_db.json
+    // Ainsi l'admin voit le dernier numéro connu dans l'onglet Compteurs
+    const majList = await fetchPhoneMaj();
+    if (majList && majList.length) {
+      majList.forEach(m => {
+        if (m.compteur && m.telephone) {
+          clientsDB[m.compteur] = m.telephone;
+        }
+      });
+    }
+
     hideLoading();
   } catch(e) {
     hideLoading();
